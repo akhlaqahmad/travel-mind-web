@@ -1,8 +1,16 @@
+// FIX: Add import for React to use React.ReactNode type.
+import React from 'react';
 import { GroundingChunk } from "@google/genai";
 
 export enum View {
-  Home = 'HOME',
-  Chat = 'CHAT',
+  Chats = 'CHATS',
+  Explore = 'EXPLORE',
+  Saved = 'SAVED',
+  Trips = 'TRIPS',
+  Updates = 'UPDATES',
+  Inspiration = 'INSPIRATION',
+  Create = 'CREATE',
+  // Below are old views that can be removed or repurposed later
   VisualCreator = 'VISUAL_CREATOR',
   ContentAnalyzer = 'CONTENT_ANALYZER',
   LiveAssistant = 'LIVE_ASSISTANT',
@@ -73,4 +81,20 @@ export interface ChatMessage {
   content: StructuredContent;
   contentType: ContentType;
   groundingChunks?: GroundingChunk[];
+}
+
+// --- TYPES FOR EXPLORE VIEW ---
+export interface ContentCardData {
+  title: string;
+  subtitle: string;
+  imageUrl: string;
+  icon?: React.ReactNode;
+}
+
+export interface ContentCarouselData {
+  title: string;
+  location?: string;
+  showMapButton?: boolean;
+  seeAllLink?: boolean;
+  cards: ContentCardData[];
 }
