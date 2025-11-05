@@ -84,12 +84,21 @@ export interface ChatMessage {
   groundingChunks?: GroundingChunk[];
 }
 
+export interface YouTubeVideo {
+    videoId: string;
+    title: string;
+    description: string;
+    channelTitle: string;
+    thumbnailUrl: string;
+}
+
 // --- TYPES FOR EXPLORE VIEW ---
 export interface ContentCardData {
   title: string;
   subtitle: string;
   imageUrl: string;
   icon?: React.ReactNode;
+  url?: string;
 }
 
 export interface ContentCarouselData {
