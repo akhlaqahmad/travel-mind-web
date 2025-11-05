@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, LiveSessionCallbacks, Modality, GenerateVideosOperation, Type, Blob } from "@google/genai";
-import { AspectRatio, ChatMessage, Restaurant } from '../types';
+import { AspectRatio, ChatMessage, Restaurant, YouTubeVideo } from '../types';
 
 async function getGenAI(): Promise<GoogleGenAI> {
     if ((window as any).aistudio && await (window as any).aistudio.hasSelectedApiKey()) {
@@ -154,7 +154,11 @@ Ensure the response is a valid JSON array.
     });
 
     try {
-        const jsonText = response.text.trim().replace(/^```json|```$/g, '');
+        const jsonText = response.text?.trim().replace(/^```json|```$/g, '');
+        if (!jsonText) {
+            console.error("Gemini response for nearby places was empty or undefined.");
+            return [];
+        }
         const places = JSON.parse(jsonText);
 
         return places.map((place: any): Restaurant => ({
@@ -171,6 +175,52 @@ Ensure the response is a valid JSON array.
         return [];
     }
 }
+
+export async function findYouTubeVideosByTopic(topic: string): Promise<YouTubeVideo[]> {
+    const ai = await getGenAI();
+    
+    const prompt = `Find 5-10 popular YouTube videos about "${topic}".
+
+You MUST respond with ONLY a valid JSON array of objects. Do not include any other text, markdown formatting (like \`\`\`json), or explanations. The JSON array must be the only content in your response.
+
+Each object in the array should represent a YouTube video and have the following structure:
+{
+  "videoId": "string",
+  "title": "string",
+  "description": "string",
+  "channelTitle": "string",
+  "thumbnailUrl": "string"
+}
+
+Ensure all thumbnail URLs are high quality.
+`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+            tools: [{ googleSearch: {} }],
+        },
+    });
+
+    try {
+        const jsonText = response.text?.trim().replace(/^```json|```$/g, '');
+        if (!jsonText) {
+            console.error("Gemini response for YouTube videos was empty or undefined.");
+            return [];
+        }
+        const videos = JSON.parse(jsonText);
+        if (Array.isArray(videos)) {
+            return videos.filter(v => v.videoId && v.title && v.thumbnailUrl);
+        }
+        console.error("Gemini response for YouTube videos was not an array:", videos);
+        return [];
+    } catch (e) {
+        console.error("Failed to parse Gemini response for YouTube videos as JSON:", e, "Response text:", response.text);
+        return [];
+    }
+}
+
 
 export async function generateImage(prompt: string, aspectRatio: AspectRatio): Promise<string> {
     const ai = await getGenAI();

@@ -3,7 +3,7 @@ import { View, ChatMessage, AspectRatio, TranscriptionEntry, Restaurant, Itinera
 import { 
     ChatsIcon, ExploreIcon, SavedIcon, TripsIcon, UpdatesIcon, InspirationIcon, CreateIcon, MoreIcon,
     LocationIcon, MapIcon, ChevronLeftIcon, ChevronRightIcon, SendIcon, BedIcon, FlightIcon, RestaurantIcon,
-    ActivityIcon, BrainIcon
+    ActivityIcon, BrainIcon, VideoIcon
 } from './components/icons';
 import { exploreData } from './mockData';
 import * as gemini from './services/gemini';
@@ -105,6 +105,8 @@ const ExploreView: React.FC<{ setView: (view: View) => void }> = ({ setView }) =
     const [carouselData, setCarouselData] = useState<ContentCarouselData[]>(exploreData);
     const [isLocationLoading, setIsLocationLoading] = useState(true);
     const [locationError, setLocationError] = useState<string | null>(null);
+    const [videoCarousel, setVideoCarousel] = useState<ContentCarouselData | null>(null);
+    const [areVideosLoading, setAreVideosLoading] = useState(true);
 
     const getCityFromVicinity = (vicinity: string): string => {
         const parts = vicinity.split(',').map(p => p.trim());
@@ -174,6 +176,36 @@ const ExploreView: React.FC<{ setView: (view: View) => void }> = ({ setView }) =
         );
     }, []);
 
+    useEffect(() => {
+        const fetchVideos = async () => {
+            try {
+                const videos = await gemini.findYouTubeVideosByTopic("beautiful travel destinations 4k");
+                if (videos.length > 0) {
+                    const videoCards: ContentCardData[] = videos.map(v => ({
+                        title: v.title,
+                        subtitle: v.channelTitle,
+                        imageUrl: v.thumbnailUrl,
+                        url: `https://www.youtube.com/watch?v=${v.videoId}`,
+                    }));
+
+                    const videoCarouselData: ContentCarouselData = {
+                        title: "Watch and Wander",
+                        cards: videoCards,
+                        seeAllLink: true,
+                    };
+                    setVideoCarousel(videoCarouselData);
+                }
+            } catch (error) {
+                console.error("Failed to fetch YouTube videos:", error);
+            } finally {
+                setAreVideosLoading(false);
+            }
+        };
+
+        fetchVideos();
+    }, []);
+
+
     const LocationCarouselPlaceholder = () => (
         <div>
             <div className="flex justify-between items-center mb-4">
@@ -206,6 +238,12 @@ const ExploreView: React.FC<{ setView: (view: View) => void }> = ({ setView }) =
 
                 {locationError && !isLocationLoading && (
                     <p className="text-sm text-slate-500 dark:text-slate-400 text-center -mt-6">{locationError}</p>
+                )}
+
+                {areVideosLoading ? (
+                    <LocationCarouselPlaceholder />
+                ) : videoCarousel && (
+                    <ContentCarousel carousel={videoCarousel} />
                 )}
 
                 {carouselData.slice(1).map((carousel, index) => (
@@ -255,12 +293,23 @@ const ContentCarousel: React.FC<{ carousel: ContentCarouselData }> = ({ carousel
 
 const ContentCard: React.FC<{ card: ContentCardData }> = ({ card }) => {
     const cardWidth = card.subtitle ? 'w-72' : 'w-96';
+
+    const Wrapper = card.url ? 'a' : 'div';
+    const wrapperProps: any = card.url 
+        ? { href: card.url, target: '_blank', rel: 'noopener noreferrer' } 
+        : {};
+    
     return (
-        <div className={`flex-shrink-0 ${cardWidth} h-96 rounded-2xl overflow-hidden relative group cursor-pointer`}>
+        <Wrapper {...wrapperProps} className={`block flex-shrink-0 ${cardWidth} h-96 rounded-2xl overflow-hidden relative group cursor-pointer`}>
             <img src={card.imageUrl} alt={card.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent"></div>
+             {card.url && ( // Show play icon only for videos
+                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <VideoIcon className="w-8 h-8 text-white" />
+                 </div>
+            )}
             <div className="absolute bottom-0 left-0 p-5 text-white">
-                <h3 className="text-xl font-bold">{card.title}</h3>
+                <h3 className="text-xl font-bold line-clamp-2">{card.title}</h3>
                 {card.subtitle && (
                   <div className="flex items-center gap-2 mt-1">
                     {card.icon}
@@ -268,7 +317,7 @@ const ContentCard: React.FC<{ card: ContentCardData }> = ({ card }) => {
                   </div>
                 )}
             </div>
-        </div>
+        </Wrapper>
     )
 }
 
@@ -370,7 +419,10 @@ const ChatView = () => {
 
         try {
             const response = await gemini.generateChatResponse(messages, trimmedMessage);
-            const responseText = response.text.trim();
+            const responseText = response.text?.trim();
+            if (!responseText) {
+                throw new Error("Received empty response from Gemini chat.");
+            }
             const parsedResponse = JSON.parse(responseText);
             
             const { contentType, itineraryPayload, textPayload } = parsedResponse;
