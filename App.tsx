@@ -130,14 +130,17 @@ const ExploreView: React.FC<{ setView: (view: View) => void }> = ({ setView }) =
                     const places = await gemini.getNearbyRestaurants("popular restaurants, hotels, attractions", latitude, longitude);
                     
                     if (places.length > 0) {
-                        const nearbyCards: ContentCardData[] = places.slice(0, 10).map(p => ({
-                            title: p.name,
-                            subtitle: p.vicinity.split(',')[0],
-                            imageUrl: p.imageUrl || `https://source.unsplash.com/random/400x400?${encodeURIComponent(p.name)}`,
-                            icon: p.name.toLowerCase().includes('hotel') 
-                                ? React.createElement(BedIcon, { className: "w-4 h-4 text-white" })
-                                : React.createElement(RestaurantIcon, { className: "w-4 h-4 text-white" })
-                        }));
+                        const nearbyCards: ContentCardData[] = places.slice(0, 10).map(p => {
+                            const isHotel = Array.isArray(p.types) && p.types.some(t => t.includes('hotel') || t.includes('lodging'));
+                            return {
+                                title: p.name,
+                                subtitle: p.vicinity.split(',')[0],
+                                imageUrl: p.imageUrl || `https://source.unsplash.com/random/400x400?${encodeURIComponent(p.name)}`,
+                                icon: isHotel 
+                                    ? React.createElement(BedIcon, { className: "w-4 h-4 text-white" })
+                                    : React.createElement(RestaurantIcon, { className: "w-4 h-4 text-white" })
+                            };
+                        });
 
                         const locationName = getCityFromVicinity(places[0].vicinity);
 

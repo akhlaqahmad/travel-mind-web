@@ -28,6 +28,7 @@ export interface Restaurant {
   vicinity: string;
   location: { lat: number, lng: number };
   imageUrl?: string;
+  types?: string[];
   distance?: number; // in km
 }
 

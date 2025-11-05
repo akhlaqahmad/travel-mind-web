@@ -117,35 +117,59 @@ The object should have the following structure:
 }
 
 export async function getNearbyRestaurants(prompt: string, latitude: number, longitude: number): Promise<Restaurant[]> {
-    const apiKey = process.env.API_KEY;
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=5000&type=restaurant&keyword=${encodeURIComponent(prompt)}&key=${apiKey}`;
+    const ai = await getGenAI();
+    
+    const newPrompt = `Find popular places near the user, such as restaurants, hotels, and attractions based on the query: "${prompt}".
 
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error('Failed to fetch from Google Maps API');
-    }
-    const data = await response.json();
+You MUST respond with ONLY a JSON array of objects. Do not include any other text, markdown formatting, or explanations. The JSON array must be the only content in your response.
 
-    return data.results.map((place: any): Restaurant => {
-        let imageUrl: string | undefined;
-        if (place.photos && place.photos.length > 0) {
-            const photoReference = place.photos[0].photo_reference;
-            imageUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=${photoReference}&key=${apiKey}`;
-        }
+Each object in the array should represent a place and have the following structure:
+{
+  "placeId": "string",
+  "name": "string",
+  "rating": number,
+  "reviewCount": number,
+  "vicinity": "string",
+  "location": { "lat": number, "lng": number },
+  "types": ["string"]
+}
 
-        return {
-            placeId: place.place_id,
+Ensure the response is a valid JSON array.
+`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: newPrompt,
+        config: {
+            tools: [{ googleMaps: {} }],
+            toolConfig: {
+                retrievalConfig: {
+                    latLng: {
+                        latitude,
+                        longitude,
+                    }
+                }
+            }
+        },
+    });
+
+    try {
+        const jsonText = response.text.trim().replace(/^```json|```$/g, '');
+        const places = JSON.parse(jsonText);
+
+        return places.map((place: any): Restaurant => ({
+            placeId: place.placeId || `generated-${place.name}-${Math.random()}`,
             name: place.name,
             rating: place.rating || 0,
-            reviewCount: place.user_ratings_total || 0,
+            reviewCount: place.reviewCount || 0,
             vicinity: place.vicinity,
-            location: {
-                lat: place.geometry.location.lat,
-                lng: place.geometry.location.lng,
-            },
-            imageUrl,
-        };
-    });
+            location: place.location,
+            types: place.types || [],
+        }));
+    } catch (e) {
+        console.error("Failed to parse Gemini response as JSON:", e, "Response text:", response.text);
+        return [];
+    }
 }
 
 export async function generateImage(prompt: string, aspectRatio: AspectRatio): Promise<string> {
