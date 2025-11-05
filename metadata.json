@@ -1,0 +1,8 @@
+{
+  "name": "TravelMind AI Companion",
+  "description": "An advanced AI travel companion powered by Gemini. It combines real-time data access, multimodal understanding, and creative generation to provide a comprehensive travel planning and documentation experience.",
+  "requestFramePermissions": [
+    "microphone",
+    "geolocation"
+  ]
+}
